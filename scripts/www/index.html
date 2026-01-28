@@ -1,11 +1,295 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>麻将自动结算器</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .rule-box {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #666;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .table-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            background-color: #2e7d32;
+            border-radius: 20px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);
+            border: 8px solid #5d4037;
+            margin-bottom: 30px;
+        }
+
+        .center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9rem;
+            width: 120px;
+        }
+        
+        .center-info span {
+            display: block;
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.2rem;
+        }
+
+        .player-seat {
+            position: absolute;
+            width: 100px;
+            text-align: center;
+        }
+
+        .seat-north { top: 10px; left: 50%; transform: translateX(-50%); }
+        .seat-south { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .seat-west { left: -30px; top: 50%; transform: translateY(-50%); width: 120px;}
+        .seat-east { right: -30px; top: 50%; transform: translateY(-50%); width: 120px;}
+
+        .label {
+            display: block;
+            color: #fff;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-shadow: 1px 1px 2px black;
+            font-size: 1.1rem;
+        }
+
+        input[type="number"] {
+            width: 70px;
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            text-align: center;
+            font-size: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .btn-calc {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: background 0.2s;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .btn-calc:active {
+            background-color: #1565c0;
+            transform: translateY(2px);
+        }
+
+        .result-container {
+            width: 100%;
+            max-width: 400px;
+            margin-top: 20px;
+        }
+
+        /* 错误提示框样式 */
+        .error-msg {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: left; /* 错误信息左对齐更易读 */
+            margin-bottom: 15px;
+            display: none;
+            border: 1px solid #ffcdd2;
+            box-shadow: 0 2px 5px rgba(211, 47, 47, 0.2);
+            animation: shake 0.5s; /* 增加一点震动动画提醒 */
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+
+        .result-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: none; 
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            padding-top: 15px;
+            border-top: 2px solid #eee;
+        }
+
+        .money-text {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>麻将结算器 (韩飞超市)</h1>
+
+    <div class="rule-box">
+        <strong>规则：</strong>本金990，按1000算，台费40。<br>
+        <strong>校验：</strong>四家输赢总和应为 <span style="color:#d32f2f;font-weight:bold;">-40</span>。
+    </div>
+
+    <div class="table-container">
+        <div class="center-info">
+            商家费用
+            <span>40元</span>
+        </div>
+
+        <div class="player-seat seat-north">
+            <span class="label">北 (N)</span>
+            <input type="number" id="score-n" placeholder="0">
+        </div>
+        <div class="player-seat seat-west">
+            <span class="label">西 (W)</span>
+            <input type="number" id="score-w" placeholder="0">
+        </div>
+        <div class="player-seat seat-east">
+            <span class="label">东 (E)</span>
+            <input type="number" id="score-e" placeholder="0">
+        </div>
+        <div class="player-seat seat-south">
+            <span class="label">南 (S)</span>
+            <input type="number" id="score-s" placeholder="0">
+        </div>
+    </div>
+
+    <button class="btn-calc" onclick="calculate()">计算结果</button>
+
+    <div class="result-container">
+        <div id="error-box" class="error-msg"></div>
+
+        <div id="result-box" class="result-card">
+            <h3 style="text-align:center; margin-top:0;">各家结余 (含本金)</h3>
+            
+            <div class="result-item">
+                <span>东家 (East)</span>
+                <span id="res-e" class="money-text">0</span>
+            </div>
+            <div class="result-item">
+                <span>南家 (South)</span>
+                <span id="res-s" class="money-text">0</span>
+            </div>
+            <div class="result-item">
+                <span>西家 (West)</span>
+                <span id="res-w" class="money-text">0</span>
+            </div>
+            <div class="result-item">
+                <span>北家 (North)</span>
+                <span id="res-n" class="money-text">0</span>
+            </div>
+            
+            <div class="result-item">
+                <span id="total-label">总现金池校验</span>
+                <span id="res-total" style="font-weight:bold;">0</span>
+            </div>
+            <p style="text-align:center; font-size:0.8rem; color:#999; margin:5px 0 0 0;">正常情况总现金应为 3960 元</p>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            // 1. 获取输入 (默认为0)
+            let e = parseFloat(document.getElementById('score-e').value) || 0;
+            let s = parseFloat(document.getElementById('score-s').value) || 0;
+            let w = parseFloat(document.getElementById('score-w').value) || 0;
+            let n = parseFloat(document.getElementById('score-n').value) || 0;
+
+            let resultBox = document.getElementById('result-box');
+            let errorBox = document.getElementById('error-box');
+            let totalLabel = document.getElementById('res-total');
+
+            // 2. 先计算结果（无论对错都计算）
+            // 公式：到手 = 1000 + 输赢分
+            let cashE = 1000 + e;
+            let cashS = 1000 + s;
+            let cashW = 1000 + w;
+            let cashN = 1000 + n;
+            let totalCash = cashE + cashS + cashW + cashN;
+
+            // 渲染数据
+            document.getElementById('res-e').innerText = cashE + " 元";
+            document.getElementById('res-s').innerText = cashS + " 元";
+            document.getElementById('res-w').innerText = cashW + " 元";
+            document.getElementById('res-n').innerText = cashN + " 元";
+            totalLabel.innerText = totalCash + " 元";
+
+            // 显示结果面板
+            resultBox.style.display = 'block';
+
+            // 3. 校验逻辑
+            let totalScore = e + s + w + n;
+            totalScore = Math.round(totalScore * 100) / 100; // 处理精度
+
+            if (totalScore !== -40) {
+                // 有错误：显示错误框，并把总金额标红
+                errorBox.style.display = 'block';
+                let diff = totalScore - (-40);
+                let diffText = diff > 0 ? `多了 ${diff}` : `少了 ${Math.abs(diff)}`;
+                
+                errorBox.innerHTML = `
+                    <strong>⚠️ 账目不对！请核对！</strong><br>
+                    当前输入总和：${totalScore} (应为 -40)<br>
+                    <strong>${diffText}</strong><br>
+                    <small>*下方是按当前输入强行计算的结果，仅供参考。</small>
+                `;
+                totalLabel.style.color = "#d32f2f"; // 红色警告
+            } else {
+                // 正确：隐藏错误框，总金额标绿
+                errorBox.style.display = 'none';
+                totalLabel.style.color = "#2e7d32"; // 绿色正常
+            }
+        }
+    </script>
+</body>
 </html>
